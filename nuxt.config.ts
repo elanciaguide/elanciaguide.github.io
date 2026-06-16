@@ -28,7 +28,8 @@ export default defineNuxtConfig({
          */
       ],
       meta: [
-        { name: 'description', content: '일랜시아(Elancia) 베타 공식 커뮤니티 가이드 — 입문, 시스템, 도감, 공략' },
+        { name: 'description', content: '일랜시아(Elancia) 커뮤니티 가이드 — 넥슨 리플레이 IP 기반 Project ER 베타. 일랜시아 리마스터·클래식을 찾는 분들을 위한 입문, 시스템, 도감, 공략 정보.' },
+        { name: 'keywords', content: '일랜시아, 일랜시아 리마스터, 일랜시아 클래식, Project ER, 프로젝트ER, 일랜시아 가이드, 일랜시아 공략, 넥슨 리플레이, Elancia' },
         { property: 'og:type', content: 'website' },
         { property: 'og:site_name', content: '일랜시아 가이드' },
         { property: 'og:image', content: 'https://elanciaguide.github.io/og-image.jpg' },

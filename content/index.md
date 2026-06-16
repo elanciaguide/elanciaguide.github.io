@@ -1,6 +1,6 @@
 ---
 title: 일랜시아 가이드
-description: 일랜시아(Project ER) 베타 공식 커뮤니티 가이드 — 입문부터 심화 공략까지
+description: 일랜시아(Project ER) 베타 공식 커뮤니티 가이드 — 일랜시아 리마스터·클래식을 찾는 분들을 위한 입문부터 심화 공략까지
 navigation:
   title: 홈
 ---
