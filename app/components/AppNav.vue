@@ -1,49 +1,6 @@
 <script setup lang="ts">
 const route = useRoute()
 
-interface NavChild {
-  label: string
-  path: string
-}
-
-interface NavCategory {
-  label: string
-  path: string
-  children?: NavChild[]
-}
-
-/** 가이드 그룹 — 코드 고정(마크다운 콘텐츠) */
-const guideCategories: NavCategory[] = [
-  {
-    label: '입문',
-    path: '/getting-started',
-    children: [
-      { label: '설치 및 접속', path: '/getting-started/installation' },
-      { label: '기본 조작', path: '/getting-started/basics' },
-    ],
-  },
-  {
-    label: '시스템',
-    path: '/systems',
-    children: [
-      { label: '전투', path: '/systems/combat' },
-      { label: '성장', path: '/systems/progression' },
-      { label: '경제', path: '/systems/economy' },
-    ],
-  },
-  {
-    label: '도감',
-    path: '/database',
-    children: [
-      { label: '아이템', path: '/database/items' },
-      { label: '캐릭터', path: '/database/characters' },
-      { label: '스킬', path: '/database/skills' },
-    ],
-  },
-  { label: '도구', path: '/tools' },
-  { label: 'FAQ', path: '/faq' },
-]
-
 /** 게시판 카테고리(DB) — 그룹별로 사이드바에 렌더 */
 const { loadCategories, categoriesByGroup } = useBoardCategories()
 const noticeCategory = computed(() => categoriesByGroup('notice')[0])
@@ -68,33 +25,6 @@ const categoryPath = (slug: string) => `/board/c/${slug}`
 const isActivePath = (path: string) => route.path === path || route.path.startsWith(path + '/')
 
 onMounted(loadCategories)
-
-/** 펼쳐진 가이드 카테고리 경로 집합. 현재 경로가 속한 카테고리는 기본 펼침. */
-const expandedPaths = ref<string[]>(
-  guideCategories.filter((category) => isActivePath(category.path)).map((category) => category.path),
-)
-
-const isExpanded = (path: string) => expandedPaths.value.includes(path)
-
-const toggleExpand = (path: string) => {
-  if (isExpanded(path)) {
-    expandedPaths.value = expandedPaths.value.filter((expandedPath) => expandedPath !== path)
-  } else {
-    expandedPaths.value = [...expandedPaths.value, path]
-  }
-}
-
-/** 경로 이동 시 현재 경로가 속한 가이드 카테고리는 자동으로 펼친다. */
-watch(
-  () => route.path,
-  () => {
-    guideCategories
-      .filter((category) => category.children && isActivePath(category.path) && !isExpanded(category.path))
-      .forEach((category) => {
-        expandedPaths.value = [...expandedPaths.value, category.path]
-      })
-  },
-)
 </script>
 
 <template>
@@ -159,59 +89,6 @@ watch(
         >
           {{ category.label }}
         </NuxtLink>
-      </li>
-    </ul>
-
-    <!-- 가이드 그룹 (코드 고정) -->
-    <button
-      class="nav-group-title"
-      :class="{ 'nav-group-title--open': isGroupExpanded('guide') }"
-      @click="toggleGroup('guide')"
-    >
-      <span class="nav-group-arrow">▸</span> 가이드
-    </button>
-    <ul v-if="isGroupExpanded('guide')" class="nav-list">
-      <li
-        v-for="category in guideCategories"
-        :key="category.path"
-        class="nav-item"
-      >
-        <div class="nav-row">
-          <NuxtLink
-            :to="category.path"
-            class="nav-link nav-link--category"
-            :class="{ 'nav-link--active': isActivePath(category.path) }"
-          >
-            {{ category.label }}
-          </NuxtLink>
-          <button
-            v-if="category.children"
-            class="nav-toggle"
-            :class="{ 'nav-toggle--open': isExpanded(category.path) }"
-            :aria-label="`${category.label} 하위 메뉴 토글`"
-            @click="toggleExpand(category.path)"
-          >
-            ▸
-          </button>
-        </div>
-        <ul
-          v-if="category.children && isExpanded(category.path)"
-          class="nav-list nav-list--children"
-        >
-          <li
-            v-for="child in category.children"
-            :key="child.path"
-            class="nav-item"
-          >
-            <NuxtLink
-              :to="child.path"
-              class="nav-link nav-link--child"
-              :class="{ 'nav-link--active': route.path === child.path }"
-            >
-              {{ child.label }}
-            </NuxtLink>
-          </li>
-        </ul>
       </li>
     </ul>
 
