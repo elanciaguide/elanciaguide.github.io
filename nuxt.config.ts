@@ -22,16 +22,10 @@ export default defineNuxtConfig({
         /** Galmuri 폰트 CDN: 연결 설정(DNS/TLS)을 미리 열어 임계 경로 단축 */
         { rel: 'preconnect', href: 'https://cdn.jsdelivr.net', crossorigin: '' },
         /**
-         * galmuri.css 전체(3종×다굵기)를 받지 않고 초기 렌더에 쓰는 Galmuri11 Regular 하나만 직접 preload.
-         * @font-face 는 theme.css 에 선언. galmuri.css → woff2 직렬 체인 1단계를 제거한다.
+         * Galmuri11(494KiB)은 제목·UI 전용이고 LCP 본문 텍스트는 시스템 폰트를 쓴다.
+         * preload 로 받으면 초기 대역폭을 선점해 LCP 를 늦추므로, @font-face 의
+         * font-display:swap + local() 폴백에 맡겨 비동기로만 로드한다.
          */
-        {
-          rel: 'preload',
-          as: 'font',
-          type: 'font/woff2',
-          href: 'https://cdn.jsdelivr.net/gh/quiple/galmuri/dist/Galmuri11.woff2',
-          crossorigin: '',
-        },
       ],
       meta: [
         { name: 'description', content: '일랜시아(Elancia) 베타 공식 커뮤니티 가이드 — 입문, 시스템, 도감, 공략' },
