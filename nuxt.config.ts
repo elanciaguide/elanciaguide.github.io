@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   ],
   /** 사이트 기본 정보 (sitemap/canonical/OG 에서 공유) */
   site: {
-    url: 'https://elanciaguide-github-io.vercel.app',
+    url: 'https://elancia-guide.vercel.app',
     name: '일랜시아 가이드',
   },
   sitemap: {
@@ -32,11 +32,11 @@ export default defineNuxtConfig({
         { name: 'keywords', content: '일랜시아, 일랜시아 리마스터, 일랜시아 클래식, Project ER, 프로젝트ER, 일랜시아 가이드, 일랜시아 공략, 넥슨 리플레이, Elancia' },
         { property: 'og:type', content: 'website' },
         { property: 'og:site_name', content: '일랜시아 가이드' },
-        { property: 'og:image', content: 'https://elanciaguide-github-io.vercel.app/og-image.jpg' },
+        { property: 'og:image', content: 'https://elancia-guide.vercel.app/og-image.jpg' },
         { property: 'og:image:width', content: '1200' },
         { property: 'og:image:height', content: '630' },
         { name: 'twitter:card', content: 'summary_large_image' },
-        { name: 'twitter:image', content: 'https://elanciaguide-github-io.vercel.app/og-image.jpg' },
+        { name: 'twitter:image', content: 'https://elancia-guide.vercel.app/og-image.jpg' },
       ],
     },
   },
