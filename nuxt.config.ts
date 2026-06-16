@@ -57,14 +57,20 @@ export default defineNuxtConfig({
   },
   devtools: { enabled: true },
   compatibilityDate: '2024-04-03',
-  /** Vercel 배포 (SSR 지원) */
-  nitro: {
-    preset: 'vercel',
-  },
   routeRules: {
     /** 게시판: 요청 시 서버 렌더(SSR) → 글 내용이 HTML 에 포함되어 검색 색인됨 */
     '/board/**': { ssr: true },
     /** 관리자: 권한·런타임 데이터 의존 → 색인 불필요, 클라이언트 전용 */
     '/admin/**': { ssr: false, robots: false },
+  },
+  /** Vercel 배포. @nuxt/content 정적 페이지는 빌드 시 프리렌더(콘텐츠는 빌드 시점 고정) */
+  nitro: {
+    preset: 'vercel',
+    prerender: {
+      crawlLinks: true,
+      routes: ['/'],
+      /** 게시판/관리자는 런타임 데이터 의존 → 프리렌더 제외(SSR/클라이언트) */
+      ignore: ['/board', '/admin'],
+    },
   },
 })
