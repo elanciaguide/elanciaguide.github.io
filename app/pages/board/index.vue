@@ -9,19 +9,12 @@ const currentUser = useSupabaseUser()
 const boardService = useBoardService()
 const { loadCategories, categoriesByGroup, categoryById } = useBoardCategories()
 const { hasPermission } = usePermissions()
-const { isUploading, uploadError, uploadMedia } = useMediaUpload()
 
 const posts = ref<PostSummary[]>([])
 const isLoading = ref(true)
 const loadError = ref('')
 const selectedCategoryId = ref<number | 'all'>('all')
-
-const isWriting = ref(false)
-const newTitle = ref('')
-const newBody = ref('')
 const newCategoryId = ref<number | null>(null)
-const isSubmitting = ref(false)
-const submitError = ref('')
 
 /** 이 게시판(커뮤니티 그룹)에서 다룰 카테고리 */
 const communityCategories = computed(() => categoriesByGroup('community'))
@@ -34,12 +27,6 @@ const writableCategories = computed(() =>
 )
 
 const labelOf = (categoryId: number) => categoryById(categoryId)?.label ?? ''
-
-const nicknameOf = () => {
-  return (currentUser.value?.user_metadata?.nickname as string) || currentUser.value?.email || '익명'
-}
-
-const formatDate = (isoDate: string) => new Date(isoDate).toLocaleString('ko-KR')
 
 const loadPosts = async () => {
   isLoading.value = true
@@ -54,51 +41,19 @@ const loadPosts = async () => {
   isLoading.value = false
 }
 
-const onSelectImage = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  const url = await uploadMedia(file, 'image')
-  input.value = ''
-  if (url) newBody.value += `\n![이미지](${url})\n`
-}
-
-const onSelectVideo = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  const url = await uploadMedia(file, 'video')
-  input.value = ''
-  if (url) newBody.value += `\n@[video](${url})\n`
-}
-
-const insertYoutube = () => {
-  const url = window.prompt('유튜브 URL을 입력하세요')
-  if (url) newBody.value += `\n${url.trim()}\n`
-}
-
-const submitPost = async () => {
-  if (!currentUser.value || newCategoryId.value === null) return
-  submitError.value = ''
-  isSubmitting.value = true
-  try {
-    await boardService.createPost({
-      authorId: currentUser.value.id,
-      authorName: nicknameOf(),
-      title: newTitle.value,
-      body: newBody.value,
-      categoryId: newCategoryId.value,
-    })
-    newTitle.value = ''
-    newBody.value = ''
-    isWriting.value = false
-    await loadPosts()
-  } catch (caughtError) {
-    submitError.value = caughtError instanceof Error ? caughtError.message : '등록 실패'
-  } finally {
-    isSubmitting.value = false
-  }
-}
+const {
+  isWriting,
+  newTitle,
+  newBody,
+  isSubmitting,
+  submitError,
+  isUploading,
+  uploadError,
+  onSelectImage,
+  onSelectVideo,
+  insertYoutube,
+  submitPost,
+} = usePostComposer(() => newCategoryId.value, loadPosts)
 
 watch(selectedCategoryId, loadPosts)
 watch(writableCategories, (writable) => {
@@ -186,7 +141,7 @@ onMounted(async () => {
           {{ post.title }}
         </NuxtLink>
         <span class="board-list-meta">
-          {{ post.author_name }} · {{ formatDate(post.created_at) }} · ♥ {{ post.likeCount }}
+          {{ post.authorName }} · {{ formatDateTime(post.createdAt) }} · ♥ {{ post.likeCount }}
         </span>
       </li>
     </ul>

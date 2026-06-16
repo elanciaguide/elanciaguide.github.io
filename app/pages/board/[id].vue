@@ -24,12 +24,6 @@ const likeCount = ref(0)
 const hasLiked = ref(false)
 const isTogglingLike = ref(false)
 
-const nicknameOf = () => {
-  return (currentUser.value?.user_metadata?.nickname as string) || currentUser.value?.email || '익명'
-}
-
-const formatDate = (isoDate: string) => new Date(isoDate).toLocaleString('ko-KR')
-
 const canManage = (authorId: string) => currentUser.value?.id === authorId
 
 const loadPost = async () => {
@@ -71,7 +65,7 @@ const submitComment = async () => {
     await boardService.createComment({
       postId,
       authorId: currentUser.value.id,
-      authorName: nicknameOf(),
+      authorName: resolveNickname(currentUser.value),
       body: newComment.value,
     })
     newComment.value = ''
@@ -111,7 +105,7 @@ onMounted(async () => {
       </div>
       <p class="detail-meta">
         <span class="detail-badge">{{ categoryById(post.categoryId)?.label }}</span>
-        {{ post.authorName }} · {{ formatDate(post.createdAt) }}
+        {{ post.authorName }} · {{ formatDateTime(post.createdAt) }}
       </p>
       <MarkdownView :source="post.body" class="detail-body" />
 
@@ -130,7 +124,7 @@ onMounted(async () => {
       <ul class="comment-list">
         <li v-for="comment in comments" :key="comment.id" class="comment-item">
           <div class="comment-meta">
-            <span>{{ comment.authorName }} · {{ formatDate(comment.createdAt) }}</span>
+            <span>{{ comment.authorName }} · {{ formatDateTime(comment.createdAt) }}</span>
             <button
               v-if="canManage(comment.authorId)"
               class="comment-delete"

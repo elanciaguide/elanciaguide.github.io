@@ -17,10 +17,6 @@ const nickname = ref('')
 const errorMessage = ref('')
 const isSubmitting = ref(false)
 
-const nicknameOf = (user: typeof currentUser.value) => {
-  return (user?.user_metadata?.nickname as string) || user?.email || '익명'
-}
-
 const toggleMode = () => {
   isSignUpMode.value = !isSignUpMode.value
   errorMessage.value = ''
@@ -63,7 +59,7 @@ const signOut = async () => {
   <div class="auth-panel">
     <template v-if="currentUser">
       <span v-if="roleLabelOf()" class="auth-role-badge">{{ roleLabelOf() }}</span>
-      <span class="auth-greeting">{{ nicknameOf(currentUser) }} 모험가님</span>
+      <span class="auth-greeting">{{ resolveNickname(currentUser) }} 모험가님</span>
       <NuxtLink v-if="isStaff" to="/admin" class="auth-button auth-admin-link">관리</NuxtLink>
       <button class="auth-button" @click="signOut">로그아웃</button>
     </template>

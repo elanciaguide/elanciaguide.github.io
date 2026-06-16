@@ -2,13 +2,7 @@
 /** 카테고리별 글 목록(공지/로드맵/노트 등). staff_only 면 권한자만 글쓰기. */
 definePageMeta({ layout: 'default' })
 
-interface Post {
-  id: number
-  author_name: string
-  title: string
-  created_at: string
-}
-
+import type { PostSummary } from '~/domain/board'
 import { PERMISSION } from '~/domain/rbac'
 
 const route = useRoute()
@@ -16,32 +10,20 @@ const currentUser = useSupabaseUser()
 const boardService = useBoardService()
 const { loadCategories, categoryBySlug } = useBoardCategories()
 const { hasPermission } = usePermissions()
-const { isUploading, uploadError, uploadMedia } = useMediaUpload()
 
 const slug = computed(() => String(route.params.slug))
 const category = computed(() => categoryBySlug(slug.value))
 
-const posts = ref<Post[]>([])
+type CategoryPost = Pick<PostSummary, 'id' | 'authorName' | 'title' | 'createdAt'>
+const posts = ref<CategoryPost[]>([])
 const isLoading = ref(true)
 const loadError = ref('')
-
-const isWriting = ref(false)
-const newTitle = ref('')
-const newBody = ref('')
-const isSubmitting = ref(false)
-const submitError = ref('')
 
 /** 이 카테고리에 글을 쓸 수 있는가 */
 const canWrite = computed(() => {
   if (!currentUser.value || !category.value) return false
   return !category.value.isStaffOnly || hasPermission(PERMISSION.noticeWrite)
 })
-
-const nicknameOf = () => {
-  return (currentUser.value?.user_metadata?.nickname as string) || currentUser.value?.email || '익명'
-}
-
-const formatDate = (isoDate: string) => new Date(isoDate).toLocaleString('ko-KR')
 
 const loadPosts = async () => {
   if (!category.value) {
@@ -52,58 +34,32 @@ const loadPosts = async () => {
   isLoading.value = true
   loadError.value = ''
   try {
-    posts.value = (await boardService.listPostsByCategory(category.value.id)) as Post[]
+    const rows = await boardService.listPostsByCategory(category.value.id)
+    posts.value = rows.map((row): CategoryPost => ({
+      id: row.id,
+      authorName: row.author_name,
+      title: row.title,
+      createdAt: row.created_at,
+    }))
   } catch (caughtError) {
     loadError.value = caughtError instanceof Error ? caughtError.message : '불러오기 실패'
   }
   isLoading.value = false
 }
 
-const onSelectImage = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  const url = await uploadMedia(file, 'image')
-  input.value = ''
-  if (url) newBody.value += `\n![이미지](${url})\n`
-}
-
-const onSelectVideo = async (event: Event) => {
-  const input = event.target as HTMLInputElement
-  const file = input.files?.[0]
-  if (!file) return
-  const url = await uploadMedia(file, 'video')
-  input.value = ''
-  if (url) newBody.value += `\n@[video](${url})\n`
-}
-
-const insertYoutube = () => {
-  const url = window.prompt('유튜브 URL을 입력하세요')
-  if (url) newBody.value += `\n${url.trim()}\n`
-}
-
-const submitPost = async () => {
-  if (!currentUser.value || !category.value) return
-  submitError.value = ''
-  isSubmitting.value = true
-  try {
-    await boardService.createPost({
-      authorId: currentUser.value.id,
-      authorName: nicknameOf(),
-      title: newTitle.value,
-      body: newBody.value,
-      categoryId: category.value.id,
-    })
-    newTitle.value = ''
-    newBody.value = ''
-    isWriting.value = false
-    await loadPosts()
-  } catch (caughtError) {
-    submitError.value = caughtError instanceof Error ? caughtError.message : '등록 실패'
-  } finally {
-    isSubmitting.value = false
-  }
-}
+const {
+  isWriting,
+  newTitle,
+  newBody,
+  isSubmitting,
+  submitError,
+  isUploading,
+  uploadError,
+  onSelectImage,
+  onSelectVideo,
+  insertYoutube,
+  submitPost,
+} = usePostComposer(() => category.value?.id ?? null, loadPosts)
 
 watch(slug, loadPosts)
 
@@ -151,7 +107,7 @@ onMounted(async () => {
     <ul v-else class="cat-list">
       <li v-for="post in posts" :key="post.id" class="cat-list-item">
         <NuxtLink :to="`/board/${post.id}`" class="cat-list-title">{{ post.title }}</NuxtLink>
-        <span class="cat-list-meta">{{ post.author_name }} · {{ formatDate(post.created_at) }}</span>
+        <span class="cat-list-meta">{{ post.authorName }} · {{ formatDateTime(post.createdAt) }}</span>
       </li>
     </ul>
   </div>
