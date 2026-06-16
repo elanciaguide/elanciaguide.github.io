@@ -32,16 +32,30 @@ const preprocess = (source: string) => {
     .join('\n')
 }
 
+/** 허용하는 iframe src 접두사: 유튜브 embed 만. 그 외 임베드는 제거한다. */
+const ALLOWED_IFRAME_SRC_PREFIX = 'https://www.youtube.com/embed/'
+
+/** iframe 의 src 가 유튜브 embed 가 아니면 노드를 제거(임의 사이트 임베드 차단) */
+const isYoutubeIframe = (node: Element) =>
+  node.tagName !== 'IFRAME' ||
+  (node.getAttribute('src') ?? '').startsWith(ALLOWED_IFRAME_SRC_PREFIX)
+
 const renderedHtml = computed(() => {
   const rawHtml = marked.parse(preprocess(props.source ?? ''), { async: false }) as string
   /** DOMPurify 는 브라우저 DOM 필요 → 클라이언트에서만 실행. iframe/video 허용 */
-  if (import.meta.client) {
-    return DOMPurify.sanitize(rawHtml, {
-      ADD_TAGS: ['iframe', 'video'],
-      ADD_ATTR: ['allowfullscreen', 'frameborder', 'controls', 'src'],
-    })
-  }
-  return ''
+  if (!import.meta.client) return ''
+
+  DOMPurify.addHook('uponSanitizeElement', (node, payload) => {
+    if (payload.tagName === 'iframe' && !isYoutubeIframe(node as Element)) {
+      node.parentNode?.removeChild(node)
+    }
+  })
+  const cleanHtml = DOMPurify.sanitize(rawHtml, {
+    ADD_TAGS: ['iframe', 'video'],
+    ADD_ATTR: ['allowfullscreen', 'frameborder', 'controls', 'src'],
+  })
+  DOMPurify.removeHook('uponSanitizeElement')
+  return cleanHtml
 })
 </script>
 
