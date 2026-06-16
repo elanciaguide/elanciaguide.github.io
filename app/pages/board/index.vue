@@ -2,22 +2,16 @@
 /** 게시판 목록 + 글쓰기. 클라이언트에서 Supabase 조회(정적 배포이므로 프리렌더 제외). */
 definePageMeta({ layout: 'default' })
 
-interface Post {
-  id: number
-  author_name: string
-  title: string
-  categoryId: number
-  created_at: string
-  likeCount: number
-}
+import type { PostSummary } from '~/domain/board'
+import { PERMISSION } from '~/domain/rbac'
 
-const supabase = useSupabaseClient()
 const currentUser = useSupabaseUser()
-const { categories, loadCategories, categoriesByGroup, categoryById } = useBoardCategories()
+const boardService = useBoardService()
+const { loadCategories, categoriesByGroup, categoryById } = useBoardCategories()
 const { hasPermission } = usePermissions()
 const { isUploading, uploadError, uploadMedia } = useMediaUpload()
 
-const posts = ref<Post[]>([])
+const posts = ref<PostSummary[]>([])
 const isLoading = ref(true)
 const loadError = ref('')
 const selectedCategoryId = ref<number | 'all'>('all')
@@ -35,7 +29,7 @@ const communityCategories = computed(() => categoriesByGroup('community'))
 /** 글쓰기에서 고를 수 있는 카테고리: staff_only 는 notice.write 권한 있을 때만 */
 const writableCategories = computed(() =>
   communityCategories.value.filter(
-    (category) => !category.isStaffOnly || hasPermission('notice.write'),
+    (category) => !category.isStaffOnly || hasPermission(PERMISSION.noticeWrite),
   ),
 )
 
@@ -51,26 +45,11 @@ const loadPosts = async () => {
   isLoading.value = true
   loadError.value = ''
   const communityIds = communityCategories.value.map((category) => category.id)
-  let query = supabase
-    .from('posts')
-    .select('id, author_name, title, category_id, created_at, post_likes(count)')
-    .in('category_id', communityIds.length > 0 ? communityIds : [-1])
-    .order('created_at', { ascending: false })
-  if (selectedCategoryId.value !== 'all') {
-    query = query.eq('category_id', selectedCategoryId.value)
-  }
-  const { data: rows, error } = await query
-  if (error) {
-    loadError.value = error.message
-  } else {
-    posts.value = (rows ?? []).map((row) => ({
-      id: row.id,
-      author_name: row.author_name,
-      title: row.title,
-      categoryId: row.category_id,
-      created_at: row.created_at,
-      likeCount: row.post_likes?.[0]?.count ?? 0,
-    }))
+  const filterCategoryId = selectedCategoryId.value === 'all' ? null : selectedCategoryId.value
+  try {
+    posts.value = await boardService.listPosts(communityIds, filterCategoryId)
+  } catch (caughtError) {
+    loadError.value = caughtError instanceof Error ? caughtError.message : '불러오기 실패'
   }
   isLoading.value = false
 }
@@ -102,22 +81,23 @@ const submitPost = async () => {
   if (!currentUser.value || newCategoryId.value === null) return
   submitError.value = ''
   isSubmitting.value = true
-  const { error } = await supabase.from('posts').insert({
-    author_id: currentUser.value.id,
-    author_name: nicknameOf(),
-    title: newTitle.value,
-    body: newBody.value,
-    category_id: newCategoryId.value,
-  })
-  isSubmitting.value = false
-  if (error) {
-    submitError.value = error.message
-    return
+  try {
+    await boardService.createPost({
+      authorId: currentUser.value.id,
+      authorName: nicknameOf(),
+      title: newTitle.value,
+      body: newBody.value,
+      categoryId: newCategoryId.value,
+    })
+    newTitle.value = ''
+    newBody.value = ''
+    isWriting.value = false
+    await loadPosts()
+  } catch (caughtError) {
+    submitError.value = caughtError instanceof Error ? caughtError.message : '등록 실패'
+  } finally {
+    isSubmitting.value = false
   }
-  newTitle.value = ''
-  newBody.value = ''
-  isWriting.value = false
-  await loadPosts()
 }
 
 watch(selectedCategoryId, loadPosts)

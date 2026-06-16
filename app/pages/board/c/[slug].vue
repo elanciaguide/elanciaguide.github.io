@@ -9,9 +9,11 @@ interface Post {
   created_at: string
 }
 
+import { PERMISSION } from '~/domain/rbac'
+
 const route = useRoute()
-const supabase = useSupabaseClient()
 const currentUser = useSupabaseUser()
+const boardService = useBoardService()
 const { loadCategories, categoryBySlug } = useBoardCategories()
 const { hasPermission } = usePermissions()
 const { isUploading, uploadError, uploadMedia } = useMediaUpload()
@@ -32,7 +34,7 @@ const submitError = ref('')
 /** 이 카테고리에 글을 쓸 수 있는가 */
 const canWrite = computed(() => {
   if (!currentUser.value || !category.value) return false
-  return !category.value.isStaffOnly || hasPermission('notice.write')
+  return !category.value.isStaffOnly || hasPermission(PERMISSION.noticeWrite)
 })
 
 const nicknameOf = () => {
@@ -49,15 +51,10 @@ const loadPosts = async () => {
   }
   isLoading.value = true
   loadError.value = ''
-  const { data: rows, error } = await supabase
-    .from('posts')
-    .select('id, author_name, title, created_at')
-    .eq('category_id', category.value.id)
-    .order('created_at', { ascending: false })
-  if (error) {
-    loadError.value = error.message
-  } else {
-    posts.value = (rows ?? []) as Post[]
+  try {
+    posts.value = (await boardService.listPostsByCategory(category.value.id)) as Post[]
+  } catch (caughtError) {
+    loadError.value = caughtError instanceof Error ? caughtError.message : '불러오기 실패'
   }
   isLoading.value = false
 }
@@ -89,22 +86,23 @@ const submitPost = async () => {
   if (!currentUser.value || !category.value) return
   submitError.value = ''
   isSubmitting.value = true
-  const { error } = await supabase.from('posts').insert({
-    author_id: currentUser.value.id,
-    author_name: nicknameOf(),
-    title: newTitle.value,
-    body: newBody.value,
-    category_id: category.value.id,
-  })
-  isSubmitting.value = false
-  if (error) {
-    submitError.value = error.message
-    return
+  try {
+    await boardService.createPost({
+      authorId: currentUser.value.id,
+      authorName: nicknameOf(),
+      title: newTitle.value,
+      body: newBody.value,
+      categoryId: category.value.id,
+    })
+    newTitle.value = ''
+    newBody.value = ''
+    isWriting.value = false
+    await loadPosts()
+  } catch (caughtError) {
+    submitError.value = caughtError instanceof Error ? caughtError.message : '등록 실패'
+  } finally {
+    isSubmitting.value = false
   }
-  newTitle.value = ''
-  newBody.value = ''
-  isWriting.value = false
-  await loadPosts()
 }
 
 watch(slug, loadPosts)

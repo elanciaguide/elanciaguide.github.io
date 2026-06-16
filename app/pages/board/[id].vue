@@ -2,33 +2,17 @@
 /** 게시글 상세 + 댓글. 클라이언트 조회(정적 배포). 본인 글/댓글만 삭제 가능. */
 definePageMeta({ layout: 'default' })
 
-interface Post {
-  id: number
-  author_id: string
-  author_name: string
-  title: string
-  body: string
-  category_id: number
-  created_at: string
-}
-
-interface Comment {
-  id: number
-  author_id: string
-  author_name: string
-  body: string
-  created_at: string
-}
+import type { Comment, PostDetail } from '~/domain/board'
 
 const route = useRoute()
 const router = useRouter()
-const supabase = useSupabaseClient()
 const currentUser = useSupabaseUser()
+const boardService = useBoardService()
 const { loadCategories, categoryById } = useBoardCategories()
 
 const postId = Number(route.params.id)
 
-const post = ref<Post | null>(null)
+const post = ref<PostDetail | null>(null)
 const comments = ref<Comment[]>([])
 const isLoading = ref(true)
 const loadError = ref('')
@@ -51,62 +35,30 @@ const canManage = (authorId: string) => currentUser.value?.id === authorId
 const loadPost = async () => {
   isLoading.value = true
   loadError.value = ''
-  const { data: postRow, error: postFetchError } = await supabase
-    .from('posts')
-    .select('id, author_id, author_name, title, body, category_id, created_at')
-    .eq('id', postId)
-    .single()
-  if (postFetchError) {
-    loadError.value = postFetchError.message
-    isLoading.value = false
-    return
+  try {
+    post.value = await boardService.getPost(postId)
+    comments.value = await boardService.listComments(postId)
+    await loadLikes()
+  } catch (caughtError) {
+    loadError.value = caughtError instanceof Error ? caughtError.message : '불러오기 실패'
   }
-  post.value = postRow as Post
-
-  const { data: commentRows } = await supabase
-    .from('comments')
-    .select('id, author_id, author_name, body, created_at')
-    .eq('post_id', postId)
-    .order('created_at', { ascending: true })
-  comments.value = (commentRows ?? []) as Comment[]
-
-  await loadLikes()
   isLoading.value = false
 }
 
 const loadLikes = async () => {
-  const { count } = await supabase
-    .from('post_likes')
-    .select('*', { count: 'exact', head: true })
-    .eq('post_id', postId)
-  likeCount.value = count ?? 0
-
-  if (!currentUser.value) {
-    hasLiked.value = false
-    return
-  }
-  const { data: myLike } = await supabase
-    .from('post_likes')
-    .select('post_id')
-    .eq('post_id', postId)
-    .eq('user_id', currentUser.value.id)
-    .maybeSingle()
-  hasLiked.value = Boolean(myLike)
+  likeCount.value = await boardService.countLikes(postId)
+  hasLiked.value = currentUser.value
+    ? await boardService.hasLiked(postId, currentUser.value.id)
+    : false
 }
 
 const toggleLike = async () => {
   if (!currentUser.value || isTogglingLike.value) return
   isTogglingLike.value = true
   if (hasLiked.value) {
-    await supabase
-      .from('post_likes')
-      .delete()
-      .eq('post_id', postId)
-      .eq('user_id', currentUser.value.id)
+    await boardService.removeLike(postId, currentUser.value.id)
   } else {
-    await supabase
-      .from('post_likes')
-      .insert({ post_id: postId, user_id: currentUser.value.id })
+    await boardService.addLike(postId, currentUser.value.id)
   }
   await loadLikes()
   isTogglingLike.value = false
@@ -115,28 +67,29 @@ const toggleLike = async () => {
 const submitComment = async () => {
   if (!currentUser.value) return
   isSubmitting.value = true
-  const { error } = await supabase.from('comments').insert({
-    post_id: postId,
-    author_id: currentUser.value.id,
-    author_name: nicknameOf(),
-    body: newComment.value,
-  })
-  isSubmitting.value = false
-  if (!error) {
+  try {
+    await boardService.createComment({
+      postId,
+      authorId: currentUser.value.id,
+      authorName: nicknameOf(),
+      body: newComment.value,
+    })
     newComment.value = ''
     await loadPost()
+  } finally {
+    isSubmitting.value = false
   }
 }
 
 const deletePost = async () => {
   if (!confirm('이 글을 삭제할까요?')) return
-  const { error } = await supabase.from('posts').delete().eq('id', postId)
-  if (!error) router.push('/board')
+  await boardService.deletePost(postId)
+  router.push('/board')
 }
 
 const deleteComment = async (commentId: number) => {
-  const { error } = await supabase.from('comments').delete().eq('id', commentId)
-  if (!error) await loadPost()
+  await boardService.deleteComment(commentId)
+  await loadPost()
 }
 
 onMounted(async () => {
@@ -154,11 +107,11 @@ onMounted(async () => {
       <NuxtLink to="/board" class="detail-back">← 목록으로</NuxtLink>
       <div class="detail-head">
         <h1>{{ post.title }}</h1>
-        <button v-if="canManage(post.author_id)" class="detail-delete" @click="deletePost">삭제</button>
+        <button v-if="canManage(post.authorId)" class="detail-delete" @click="deletePost">삭제</button>
       </div>
       <p class="detail-meta">
-        <span class="detail-badge">{{ categoryById(post.category_id)?.label }}</span>
-        {{ post.author_name }} · {{ formatDate(post.created_at) }}
+        <span class="detail-badge">{{ categoryById(post.categoryId)?.label }}</span>
+        {{ post.authorName }} · {{ formatDate(post.createdAt) }}
       </p>
       <MarkdownView :source="post.body" class="detail-body" />
 
@@ -177,9 +130,9 @@ onMounted(async () => {
       <ul class="comment-list">
         <li v-for="comment in comments" :key="comment.id" class="comment-item">
           <div class="comment-meta">
-            <span>{{ comment.author_name }} · {{ formatDate(comment.created_at) }}</span>
+            <span>{{ comment.authorName }} · {{ formatDate(comment.createdAt) }}</span>
             <button
-              v-if="canManage(comment.author_id)"
+              v-if="canManage(comment.authorId)"
               class="comment-delete"
               @click="deleteComment(comment.id)"
             >

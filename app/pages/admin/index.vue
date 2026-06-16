@@ -2,61 +2,38 @@
 /** 관리자 페이지: 회원 등급 관리. role.manage 권한 보유자만 사용. */
 definePageMeta({ layout: 'default' })
 
-interface MemberRow {
-  id: string
-  nickname: string
-  roleKey: string
-  createdAt: string
-}
+import type { MemberRow } from '~/domain/rbac'
+import { PERMISSION } from '~/domain/rbac'
 
-interface RoleOption {
-  key: string
-  label: string
-}
-
-const supabase = useSupabaseClient()
 const currentUser = useSupabaseUser()
 const { hasPermission, isLoaded, loadPermissions } = usePermissions()
+const profileService = useProfileService()
 
 const members = ref<MemberRow[]>([])
-const roleOptions = ref<RoleOption[]>([])
+const roleOptions = ref<Awaited<ReturnType<typeof profileService.listRoles>>>([])
 const isLoading = ref(true)
 const actionError = ref('')
 
-const canManageRoles = computed(() => hasPermission('role.manage'))
+const canManageRoles = computed(() => hasPermission(PERMISSION.roleManage))
 
 const formatDate = (isoDate: string) => new Date(isoDate).toLocaleDateString('ko-KR')
 
 const loadMembers = async () => {
   isLoading.value = true
-  const { data: roleRows } = await supabase.from('roles').select('key, label').order('level')
-  roleOptions.value = (roleRows ?? []) as RoleOption[]
-
-  const { data: profileRows } = await supabase
-    .from('profiles')
-    .select('id, nickname, created_at, roles(key)')
-    .order('created_at', { ascending: false })
-  members.value = (profileRows ?? []).map((profileRow) => ({
-    id: profileRow.id,
-    nickname: profileRow.nickname,
-    roleKey: (profileRow.roles?.key as string) ?? 'user',
-    createdAt: profileRow.created_at,
-  }))
+  roleOptions.value = await profileService.listRoles()
+  members.value = await profileService.listMembers()
   isLoading.value = false
 }
 
 const changeRole = async (member: MemberRow, newRoleKey: string) => {
   actionError.value = ''
-  const { error } = await supabase.rpc('assign_role', {
-    target_user: member.id,
-    new_role_key: newRoleKey,
-  })
-  if (error) {
-    actionError.value = error.message
+  try {
+    await profileService.assignRole(member.id, newRoleKey)
+    member.roleKey = newRoleKey
+  } catch (caughtError) {
+    actionError.value = caughtError instanceof Error ? caughtError.message : '변경 실패'
     await loadMembers()
-    return
   }
-  member.roleKey = newRoleKey
 }
 
 onMounted(async () => {

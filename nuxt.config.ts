@@ -41,6 +41,10 @@ export default defineNuxtConfig({
     },
   },
   css: ['~/assets/css/theme.css'],
+  /** services 레이어도 자동 import (composables/utils 는 기본 포함) */
+  imports: {
+    dirs: ['services'],
+  },
   devtools: { enabled: true },
   compatibilityDate: '2024-04-03',
   /** GitHub Pages(username.github.io 루트) 정적 배포 */
