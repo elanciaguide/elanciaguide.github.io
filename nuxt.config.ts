@@ -3,7 +3,29 @@ export default defineNuxtConfig({
   modules: [
     '@nuxt/content',
     '@nuxtjs/supabase',
+    '@nuxtjs/sitemap',
   ],
+  /** 사이트 기본 정보 (sitemap/canonical/OG 에서 공유) */
+  site: {
+    url: 'https://elanciaguide.github.io',
+    name: '일랜시아 가이드',
+  },
+  sitemap: {
+    /** 런타임 의존 라우트는 sitemap 에서 제외 */
+    exclude: ['/board/**', '/admin/**'],
+  },
+  app: {
+    head: {
+      htmlAttrs: { lang: 'ko' },
+      titleTemplate: '%s | 일랜시아 가이드',
+      meta: [
+        { name: 'description', content: '일랜시아(Elancia) 베타 공식 커뮤니티 가이드 — 입문, 시스템, 도감, 공략' },
+        { property: 'og:type', content: 'website' },
+        { property: 'og:site_name', content: '일랜시아 가이드' },
+        { name: 'twitter:card', content: 'summary_large_image' },
+      ],
+    },
+  },
   /** 정적 배포: 인증 미들웨어의 자동 리다이렉트를 끄고 페이지에서 직접 제어 */
   supabase: {
     redirect: false,
